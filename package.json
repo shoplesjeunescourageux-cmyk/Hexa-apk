@@ -1,1 +1,16 @@
-{"name":"hexa","version":"1.0.0","private":true,"dependencies":{"@capacitor/android":"^6.1.2","@capacitor/cli":"^6.1.2","@capacitor/core":"^6.1.2"}}
+{
+  "name": "hexa",
+  "version": "1.0.0",
+  "description": "Application Hexa",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}
