@@ -1,1 +1,11 @@
-{"appId":"com.hexa.app","appName":"Hexa","webDir":"www"}
+{
+  "appId": "com.hexa.app",
+  "appName": "hexa",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "webContentsDebuggingEnabled": true
+  }
+}
