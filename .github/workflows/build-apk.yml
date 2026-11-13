@@ -16,10 +16,12 @@ jobs:
           distribution: temurin
           java-version: 17
       - run: npm install
+      - name: Copier la bibliothèque Supabase dans l'application
+        run: cp node_modules/@supabase/supabase-js/dist/umd/supabase.js www/supabase.js
       - run: npx cap add android
       - name: Autoriser le micro et internet
         run: |
-          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <application android:usesCleartextTraffic="true"#' android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <application#' android/app/src/main/AndroidManifest.xml
       - run: npx cap sync android
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
