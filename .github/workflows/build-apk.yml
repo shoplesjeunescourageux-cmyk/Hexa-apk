@@ -21,6 +21,16 @@ jobs:
       - name: Rendre la bibliothèque compatible avec les anciens téléphones
         run: npx esbuild www/supabase.js --target=es2017 --allow-overwrite --outfile=www/supabase.js
       - run: npx cap add android
+      - name: Icône Hexa
+        run: |
+          R=android/app/src/main/res
+          for s in "mdpi 108 48" "hdpi 162 72" "xhdpi 216 96" "xxhdpi 324 144" "xxxhdpi 432 192"; do
+            set -- $s
+            convert icon.png -resize ${2}x${2} $R/mipmap-$1/ic_launcher_foreground.png
+            convert icon.png -resize ${3}x${3} -background '#101428' -alpha remove -alpha off $R/mipmap-$1/ic_launcher.png
+            cp $R/mipmap-$1/ic_launcher.png $R/mipmap-$1/ic_launcher_round.png
+          done
+          sed -i 's/#FFFFFF/#101428/' $R/values/ic_launcher_background.xml
       - name: Autoriser le micro et internet
         run: |
           sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <application#' android/app/src/main/AndroidManifest.xml
