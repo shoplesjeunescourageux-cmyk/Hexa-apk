@@ -21,6 +21,8 @@ jobs:
       - name: Rendre la bibliothèque compatible avec les anciens téléphones
         run: npx esbuild www/supabase.js --target=es2017 --allow-overwrite --outfile=www/supabase.js
       - run: npx cap add android
+      - name: Installer ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
       - name: Icône Hexa
         run: |
           R=android/app/src/main/res
