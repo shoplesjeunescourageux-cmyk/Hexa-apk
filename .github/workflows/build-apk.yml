@@ -18,6 +18,8 @@ jobs:
       - run: npm install
       - name: Copier la bibliothèque Supabase dans l'application
         run: cp node_modules/@supabase/supabase-js/dist/umd/supabase.js www/supabase.js
+      - name: Rendre la bibliothèque compatible avec les anciens téléphones
+        run: npx esbuild www/supabase.js --target=es2017 --allow-overwrite --outfile=www/supabase.js
       - run: npx cap add android
       - name: Autoriser le micro et internet
         run: |
