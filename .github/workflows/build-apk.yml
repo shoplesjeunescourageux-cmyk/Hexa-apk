@@ -20,6 +20,10 @@ jobs:
         run: cp node_modules/@supabase/supabase-js/dist/umd/supabase.js www/supabase.js
       - name: Rendre la bibliothèque compatible avec les anciens téléphones
         run: npx esbuild www/supabase.js --target=es2017 --allow-overwrite --outfile=www/supabase.js
+      - name: Données pays et provinces
+        run: |
+          npm install --no-save country-state-city
+          node -e "const {Country,State}=require('country-state-city');const s={};State.getAllStates().forEach(x=>{(s[x.countryCode]=s[x.countryCode]||[]).push(x.name)});require('fs').writeFileSync('www/geo.json',JSON.stringify({c:Country.getAllCountries().map(x=>[x.isoCode,x.name]),s}))"
       - run: npx cap add android
       - name: Installer ImageMagick
         run: sudo apt-get update && sudo apt-get install -y imagemagick
