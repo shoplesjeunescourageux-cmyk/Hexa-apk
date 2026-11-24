@@ -35,6 +35,11 @@ window.__main = function() {
     return;
   }
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let ONLINE = /* @__PURE__ */ new Set(), LAST = {}, READ = {};
+  try {
+    READ = JSON.parse(localStorage.getItem("hx_read") || "{}");
+  } catch (e) {
+  }
   let me = null, P = {}, st = {}, FR = [], FP = [], peer = null, img = null, aud = null, rec = null, drec = null, sign = false, geo = null, mine = /* @__PURE__ */ new Set(), nb = { bd: 0, bf: 0 };
   setTimeout(() => {
     if ($("#app").hidden && $("#auth").hidden) {
@@ -193,6 +198,9 @@ window.__main = function() {
     $$("nav button").forEach((x) => x.classList.toggle("on", x.dataset.v == v));
     VIEWS.forEach((x) => $("#v-" + x).hidden = x != v);
     if (v == "dm") {
+      $("#dml").hidden = false;
+      $("#dmc").hidden = true;
+      peer = null;
       people();
       badge("bd", 0);
     }
@@ -246,10 +254,13 @@ window.__main = function() {
       loadPosts();
       if (!$("#v-vid").hidden) loadVideos();
     }).on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver=eq.${me.id}` }, (m) => {
-      if (peer == m.new.sender && !$("#v-dm").hidden) loadDm();
-      else {
+      if (peer == m.new.sender && !$("#v-dm").hidden) {
+        READ[peer] = Date.now();
+        loadDm();
+      } else {
         note("msg", "\u{1F4AC} Nouveau message");
         badge("bd", 1);
+        if (!$("#v-dm").hidden) people();
       }
     }).on("postgres_changes", { event: "INSERT", schema: "public", table: "friends", filter: `b=eq.${me.id}` }, () => {
       note("ami", "\u{1F44B} Nouvelle invitation d'ami");
@@ -263,6 +274,17 @@ window.__main = function() {
     }).on("postgres_changes", { event: "INSERT", schema: "public", table: "likes" }, (m) => {
       if (mine.has(m.new.post_id) && m.new.user_id != me.id) note("com", "\u{1F49C} Quelqu'un aime votre publication");
     }).subscribe();
+    const pc = sb.channel("online", { config: { presence: { key: me.id } } });
+    pc.on("presence", { event: "sync" }, () => {
+      ONLINE = new Set(Object.keys(pc.presenceState()));
+      ONLINE.delete(me.id);
+      if (!$("#v-dm").hidden) {
+        if (peer) chatHdr();
+        else drawChats();
+      }
+    }).subscribe(async (s) => {
+      if (s === "SUBSCRIBED") await pc.track({ at: Date.now() });
+    });
   }
   const FEEDS = { Monde: "https://www.france24.com/fr/rss", Afrique: "https://www.rfi.fr/fr/afrique/rss", Europe: "https://www.rfi.fr/fr/europe/rss", Am\u00E9riques: "https://www.rfi.fr/fr/ameriques/rss", "Asie-Pacifique": "https://www.rfi.fr/fr/asie-pacifique/rss", "Moyen-Orient": "https://www.rfi.fr/fr/moyen-orient/rss" };
   function chips() {
@@ -478,14 +500,54 @@ window.__main = function() {
     clearTimeout(ft);
     ft = setTimeout(friends, 350);
   };
-  function people() {
-    $("#who2").innerHTML = '<option value="">Choisir un ami\u2026</option>' + FP.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join("");
-    $("#dmn").textContent = FP.length ? "Vous pouvez \xE9crire \xE0 vos amis (invitation accept\xE9e)." : "Invitez quelqu'un dans \xAB Moi \xBB > Amis : il doit accepter avant que vous puissiez discuter.";
-    $("#who2").onchange = () => {
-      peer = $("#who2").value || null;
-      loadDm();
-    };
+  async function people() {
+    const { data } = await sb.from("messages").select("sender,receiver,body,audio,created_at").or(`sender.eq.${me.id},receiver.eq.${me.id}`).order("created_at", { ascending: false }).limit(300);
+    LAST = {};
+    (data || []).forEach((m) => {
+      const o = m.sender == me.id ? m.receiver : m.sender;
+      if (!LAST[o]) LAST[o] = m;
+    });
+    drawChats();
   }
+  const hhmm = (t) => {
+    const d = new Date(t), n = /* @__PURE__ */ new Date();
+    return d.toDateString() == n.toDateString() ? d.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("fr", { day: "2-digit", month: "2-digit" });
+  };
+  function drawChats() {
+    const q = ($("#dmq").value || "").toLowerCase(), F = FP.filter((f) => (f.name || "").toLowerCase().includes(q));
+    $("#stories").innerHTML = [...F].sort((x, y) => ONLINE.has(y.id) - ONLINE.has(x.id)).map((f) => `<div class="st" data-o="${f.id}"><img src="${esc(f.avatar || AV)}">${ONLINE.has(f.id) ? '<span class="dot"></span>' : ""}<div>${esc((f.name || "").split(" ")[0])}</div></div>`).join("") || `<p class="t">Aucun ami pour le moment. Invitez quelqu'un dans \xAB Moi \xBB > Amis : il doit accepter avant que vous puissiez discuter.</p>`;
+    $("#chats").innerHTML = [...F].sort((x, y) => {
+      var _a, _b;
+      return new Date(((_a = LAST[y.id]) == null ? void 0 : _a.created_at) || 0) - new Date(((_b = LAST[x.id]) == null ? void 0 : _b.created_at) || 0);
+    }).map((f) => {
+      const m = LAST[f.id], un = m && m.sender == f.id && new Date(m.created_at) > (READ[f.id] || 0), pv = m ? (m.sender == me.id ? "Vous : " : "") + (m.body || "\u{1F3A4} Message vocal") : "Dites bonjour \u{1F44B}";
+      return `<div class="cr ${un ? "un" : ""}" data-o="${f.id}"><div style="position:relative">${av(f.avatar, "", "av big2")}${ONLINE.has(f.id) ? '<span class="dot"></span>' : ""}</div><div style="flex:1;min-width:0"><div class="nm">${esc(f.name)}</div><div class="pv t">${esc(pv)}</div></div>${m ? `<span class="t">${hhmm(m.created_at)}</span>` : ""}</div>`;
+    }).join("");
+    $$("#dml [data-o]").forEach((e) => e.onclick = () => openChat(e.dataset.o));
+  }
+  function chatHdr() {
+    const f = FP.find((x) => x.id == peer);
+    $("#dmh").innerHTML = f ? `${av(f.avatar, "")}<b>${esc(f.name)}</b> <span class="t">${ONLINE.has(peer) ? "\u{1F7E2} En ligne" : "Hors ligne"}</span>` : "";
+  }
+  function openChat(id) {
+    peer = id;
+    $("#dml").hidden = true;
+    $("#dmc").hidden = false;
+    READ[id] = Date.now();
+    try {
+      localStorage.setItem("hx_read", JSON.stringify(READ));
+    } catch (e) {
+    }
+    chatHdr();
+    loadDm();
+  }
+  $("#dmb").onclick = () => {
+    peer = null;
+    $("#dmc").hidden = true;
+    $("#dml").hidden = false;
+    people();
+  };
+  $("#dmq").oninput = drawChats;
   async function loadDm() {
     if (!peer) {
       $("#dm").innerHTML = "";
@@ -532,6 +594,33 @@ window.__main = function() {
       alert("Micro non autoris\xE9.");
     }
   };
+  $("#fg").onclick = (e) => {
+    e.preventDefault();
+    $("#rs").hidden = !$("#rs").hidden;
+    $("#rs_em").value = $("#em").value;
+  };
+  $("#rs_go").onclick = async () => {
+    const m = $("#rs_er");
+    m.style.color = "var(--rd)";
+    m.textContent = "";
+    const b = { email: $("#rs_em").value.trim(), naissance: $("#rs_dob").value, tel: $("#rs_tel").value.trim(), password: $("#rs_pw").value };
+    if (!b.email || !b.naissance || !b.tel || b.password.length < 8) {
+      m.textContent = "Remplissez tous les champs (mot de passe : 8 caract\xE8res min.).";
+      return;
+    }
+    $("#rs_go").disabled = true;
+    try {
+      const r = await fetch(SUPABASE_URL + "/functions/v1/reset-password", { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }, body: JSON.stringify(b) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || j.message || "Service indisponible.");
+      m.style.color = "var(--gr)";
+      m.textContent = "Mot de passe chang\xE9 \u2714 Connectez-vous avec le nouveau.";
+      $("#rs_pw").value = "";
+    } catch (x) {
+      m.textContent = x.message;
+    }
+    $("#rs_go").disabled = false;
+  };
   function birthdays() {
     const t = mdNow();
     let h = "";
@@ -575,9 +664,7 @@ window.__main = function() {
     if ($("#pfm")) $("#pfm").onclick = () => {
       pf.hidden = true;
       go("dm");
-      $("#who2").value = id;
-      peer = id;
-      loadDm();
+      openChat(id);
     };
   }
   function drawMe() {
